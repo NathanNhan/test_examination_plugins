@@ -209,7 +209,7 @@ if(!class_exists('BookHotel')) {
         }else{
           wp_send_json_error(array(
             "status" => '201',
-            "message" => "Cập nhật thất bại"
+            "message" => "Cập nhật thất bại!"
           ));
           wp_die();
         }
