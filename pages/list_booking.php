@@ -31,12 +31,18 @@
                 <td><?php echo $hotel["start_date"] ?></td>
                 <td><?php echo $hotel["end_date"] ?></td>
                 <td>
-                    <select class="form-select status" data-id="<?php echo $hotel["id"] ?>"  aria-label="Default select example">
-                        <option >Open status</option>
-                        <option value="booked">Booked</option>
-                        <option value="returned">Returned</option>
-                        <option value="closed">Closed</option>
-                    </select>
+                <select class="form-select status" data-id="<?php echo $hotel['id']; ?>" aria-label="Default select example">
+                    <?php
+                    $statuses = ['Open status', 'booked', 'returned', 'closed'];
+                    
+                    foreach ($statuses as $status) {
+                        // Kiểm tra xem trạng thái hiện tại có trùng với trạng thái của khách sạn không
+                        $selected = ($hotel['status'] == $status) ? ' selected' : '';
+                        echo "<option value='$status'$selected>$status</option>";
+                    }
+                    ?>
+                </select>
+
                 </td>
             <?php endforeach; ?>
 

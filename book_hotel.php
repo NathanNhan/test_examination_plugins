@@ -31,6 +31,7 @@ if(!class_exists('BookHotel')) {
 
   //Lưu thông tin đặt phòng bằng ajax 
    add_action("wp_ajax_bookroom",array($this, "booking_ajax_handler"));
+   add_action('wp_ajax_nopriv_bookroom', array($this, "booking_ajax_handler"));
    //Cập nhật trạng thái phòng
    add_action("wp_ajax_statusUpdate",array($this, "update_status_room"));
   }
@@ -47,8 +48,8 @@ if(!class_exists('BookHotel')) {
   function book_room_form() {
      $html= "";
      $html .= "
-     <div class='alert alert-danger' role='alert' id='alert_danger'>
-  
+     <div class='alert alert-danger' role='alert' id='alert_danger'></div>
+     <div class='alert alert-success' role='alert' id='alert_success'>
      </div>
      <form id='booking_form' action='javascript:void(0)' method='POST'>
                 <div class='form-group'>
@@ -94,25 +95,29 @@ if(!class_exists('BookHotel')) {
 
 
   //Tạo table khi kích hoạt plugin 
-  function create_table_ems() {
-    global $wpdb; 
-    $table_prefix = $wpdb->prefix; // wp_
-    $sql = "CREATE TABLE `{$table_prefix}book_hotel` (
-      `id` int NOT NULL AUTO_INCREMENT,
-      `email` varchar(255) NOT NULL,
-      `name` varchar(255) NOT NULL,
-      `phone` varchar(20) NOT NULL,
-      `room_no` int NOT NULL,
-      `status` varchar(255) NOT NULL DEFAULT 'booked',
-      `start_date` varchar(255) NOT NULL,
-      `end_date` varchar(255) NOT NULL, 
-      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (`id`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci";
-    
-      include_once ABSPATH . '/wp-admin/includes/upgrade.php';
-      dbDelta($sql); 
+    function create_table_ems() {
+      global $wpdb; 
+      $table_name = $wpdb->prefix . 'book_hotel';  
+
+      $charset_collate = $wpdb->get_charset_collate(); // Lấy charset và collation
+
+      $sql = "CREATE TABLE $table_name (
+        id int NOT NULL AUTO_INCREMENT,
+        email varchar(255) NOT NULL,
+        name varchar(255) NOT NULL,
+        phone varchar(20) NOT NULL,
+        room_no int NOT NULL,
+        status varchar(255) NOT NULL DEFAULT 'booked',
+        start_date date NOT NULL,
+        end_date date NOT NULL, 
+        created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id)
+      ) $charset_collate;";  // Sử dụng biến $charset_collate để đảm bảo charset phù hợp
+      
+      require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+      dbDelta($sql);
   }
+
 
   // Xóa table khi hủy kích hoạt plugin 
   function drop_table_ems() {
@@ -135,17 +140,18 @@ if(!class_exists('BookHotel')) {
     wp_enqueue_script( 'dataTable_min_js', PLUGIN_URI."js/dataTables.min.js", array('jquery'), '1.0.0', true );
     wp_enqueue_script('jquery_validate', PLUGIN_URI."js/jquery.validate.min.js", array('jquery'), '1.0.0', true);
     wp_enqueue_script('myscript', PLUGIN_URI."js/myscript.js", array('jquery'), '1.0.0', true);
+    
     //Nhúng đường dẫn admin_ajax vào trong myscript để sử dụng
-    wp_localize_script("myscript","ajaxurl",array(
-      "baseURL" => admin_url("admin-ajax.php")
+   
+    wp_localize_script('myscript', 'ajaxurl', array(
+        'baseURL' => admin_url("admin-ajax.php"),
+     
     ));
 
   }
 
 
-
   //call ajax phía backend
-
   function booking_ajax_handler() {
   global $wpdb;
   //Đọc danh sách các phòng với trạng thái đã được đặt
@@ -154,16 +160,24 @@ if(!class_exists('BookHotel')) {
    $results = $wpdb->get_results("SELECT * from wp_book_hotel",ARRAY_A);
    foreach($results as $result) {
     if($result["room_no"] == $_REQUEST["room"] && $result['status'] == 'booked') {
-      print_r(json_encode(array("status" => "200", "message" => "Your Room Unavailable. Please choose another room")));
+      print_r(json_encode(array("status" => "201", "message" => "Your Room Unavailable. Please choose another room")));
       wp_die();
     } 
    }
    //Ngược lại , thì lưu thông tin phòng đã đặt xuống cơ sở dữ liệu
-   if($_REQUEST['param']=="save") {
-       //Viết code ở đây để lưu thông tin phòng đã đặt xuống cơ sở dữ liệu
+   if(isset($_REQUEST['param']) && $_REQUEST['param']=="save") {
+       $wpdb->insert("{$wpdb->prefix}book_hotel",array(
+        "email" => $_REQUEST["email"],
+        "name" => $_REQUEST["name"],
+        "phone" => $_REQUEST["phone"],
+        "room_no" => $_REQUEST["room"],
+        "start_date" => $_REQUEST["startdate"],
+        "end_date" => $_REQUEST["enddate"],
+        "status" => "booked"
+       ));
+       print_r(json_encode(array("status" => "200", "message" => "Đặt phòng thành công")));
+       wp_die();
     }
-   
-  
 
   wp_die();
   }
@@ -172,26 +186,55 @@ if(!class_exists('BookHotel')) {
 
 
   //Update status room
-  function update_status_room() {
-    if ($_REQUEST['param'] == "update") {
-    //Viết code ở đây để cập nhật lại status của lịch đặt phòng đó theo ID 
-
+    function update_status_room() {
+      if (isset($_REQUEST['param']) && $_REQUEST['param'] == "update") {
+      global $wpdb;
+      
+      $status = isset($_REQUEST['status']) ? sanitize_text_field($_REQUEST['status']) : '';
+      $id = isset($_REQUEST['id']) ? intval($_REQUEST['id']) : '';
+      
+      // Kiểm tra id có hợp lệ ko 
+      if($id > 0 ){
+        $update = $wpdb->update(
+          $wpdb->prefix.'book_hotel',
+          array('status' => $status),
+          array('id' => $id)
+        );
+        if($update !== false){
+          wp_send_json_success(array(
+            "status" => '200',
+            "message" => "Cập nhật thành công")
+          );
+          wp_die();
+        }else{
+          wp_send_json_error(array(
+            "status" => '201',
+            "message" => "Cập nhật thất bại"
+          ));
+          wp_die();
+        }
+      } else {
+        wp_send_json_error(array(
+          "status" => '400',
+          "message" => "ID không hợp lệ"
+        ));
+      }
     }
 
   }
+}
+  $plugins = new BookHotel();
 
- }
+
+
+  //Kích hoạt plugin + Tạo table wp_ems_form_data
+  register_activation_hook( __FILE__, array($plugins, 'create_table_ems'));
+
+  // Hủy kích hoạt plugin => Xóa table wp_ems_form_data
+  register_deactivation_hook( __FILE__, array($plugins, 'drop_table_ems'));
 }
 
-$plugins = new BookHotel();
 
-
-
-//Kích hoạt plugin + Tạo table wp_ems_form_data
-register_activation_hook( __FILE__, array($plugins, 'create_table_ems'));
-
-// Hủy kích hoạt plugin => Xóa table wp_ems_form_data
-register_deactivation_hook( __FILE__, array($plugins, 'drop_table_ems'));
 
 
 
