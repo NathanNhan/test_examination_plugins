@@ -137,7 +137,7 @@ if(!class_exists('BookHotel')) {
     wp_enqueue_style('mystyle_css', PLUGIN_URI."css/mystyle.css", array(), '1.0.0', 'all');
     //Nhúng thư viện js
     wp_enqueue_script( 'bootstrap_min_js', PLUGIN_URI."js/bootstrap.min.js", array('jquery'), '1.0.0', true );
-    wp_enqueue_script( 'dataTable_min_js', PLUGIN_URI."js/dataTables.min.js", array('jquery'), '1.0.0', true );
+    wp_enqueue_script( 'dataTable_min_js', PLUGIN_URI."js/dataTables.min.js", array('jquery'), '1.0.1', true );
     wp_enqueue_script('jquery_validate', PLUGIN_URI."js/jquery.validate.min.js", array('jquery'), '1.0.0', true);
     wp_enqueue_script('myscript', PLUGIN_URI."js/myscript.js", array('jquery'), '1.0.0', true);
     
@@ -159,13 +159,13 @@ if(!class_exists('BookHotel')) {
   //Thì trả về thông báo là phòng đã được đặt. Vui lòng chọn phòng khác
    $results = $wpdb->get_results("SELECT * from wp_book_hotel",ARRAY_A);
    foreach($results as $result) {
-    if($result["room_no"] == $_REQUEST["room"] && $result['status'] == 'booked') {
+    if($result["room_no"] === $_REQUEST["room"] && $result['status'] === 'booked') {
       print_r(json_encode(array("status" => "201", "message" => "Your Room Unavailable. Please choose another room")));
       wp_die();
     } 
    }
    //Ngược lại , thì lưu thông tin phòng đã đặt xuống cơ sở dữ liệu
-   if(isset($_REQUEST['param']) && $_REQUEST['param']=="save") {
+   if($_REQUEST['param']=="save") {
        $wpdb->insert("{$wpdb->prefix}book_hotel",array(
         "email" => $_REQUEST["email"],
         "name" => $_REQUEST["name"],
@@ -179,7 +179,7 @@ if(!class_exists('BookHotel')) {
        wp_die();
     }
 
-  wp_die();
+  //wp_die();
   }
 
 

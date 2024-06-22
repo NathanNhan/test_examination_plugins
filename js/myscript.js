@@ -1,5 +1,4 @@
 
-new DataTable('#list_employees');
 // Xác thực đầu vào cho form ems_form_data và submit form
 
 
